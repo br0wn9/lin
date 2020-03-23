@@ -25,7 +25,7 @@ class Worker:
             logger.debug('Ignored broken pipe')
         elif isinstance(e, ConnectionResetError):
             logger.debug('Ignored connection reset by peer')
-        elif isinstance(e, LimitRequestLine, LimitRequestHeader, InvalidRequestMethod, LimitRequestLine, LimitRequestLine):
+        elif isinstance(e, (LimitRequestLine, LimitRequestHeader, InvalidRequestMethod, LimitRequestLine, LimitRequestLine)):
             logger.debug('Parsing exception {}'.format(str(e)))
         else:
             logger.warning('Unknown exception: {} from {}:{}'.format(str(e), *addr))
