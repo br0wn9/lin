@@ -11,7 +11,7 @@ with open(readme_path) as fp:
 
 setup(
     name="lin",
-    version=__VERSION__,
+    version="{}.{}.{}".format(*__VERSION__),
     url="https://github.com/br0wn9/lin",
     author="Brown Guan",
     author_email="br0wn.l61g@gmail.com",
