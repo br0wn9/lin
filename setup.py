@@ -22,7 +22,7 @@ setup(
     packages=find_packages(exclude=['examples', 'tests']),
     include_package_data=True,
     entry_points={
-        "console_scripts": ["lin = lin.cli:CommandLineInterface.entrypoint"]
+        "console_scripts": ["lin = lin.cli:CommandInterface.entrypoint"]
     },
     classifiers=[
         "Development Status :: 4 - Beta",
