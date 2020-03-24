@@ -1,13 +1,13 @@
 
 
 class Header:
-    def __init__(self, fields = []):
-        self.fields = fields 
+    def __init__(self, fields = None):
+        self.fields = fields if fields else []
 
     def get(self, key):
         for k, v in self.fields:
             if k.lower() == key.lower():
-                return v
+                return v.lower()
 
     def set(self, key, value):
         self.fields.append((key, value))

@@ -91,7 +91,7 @@ class Response:
 
     def header_dump(self):
         if self.status is None:
-            raise AssertionError("Respoonse header not set")
+            raise AssertionError("Response header not set")
 
         status_line = "HTTP/{} {}\r\n".format(self.version, self.status)
         self.header.set('Date', http_date())

@@ -133,7 +133,7 @@ class HTTP_v1_x_Parser:
         req = Request(method, uri, version, header, self.sock.getsockname(), self.reader)
 
         expect = req.header.get('expect') 
-        if expect and expect.lower() == '100-continue':
+        if expect and expect == '100-continue':
             await self.sock.sendall(b"HTTP/1.1 100 Continue\r\n\r\n")
 
         req.init_body()
