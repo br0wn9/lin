@@ -3,6 +3,7 @@
 import os
 import pwd
 import grp
+import multiprocessing
 
 from lin.utils import LazyFunction, set_process_workdir
 
@@ -123,7 +124,7 @@ class Setting(metaclass=Config):
 
 class Listen(Setting):
     name = 'listen'
-    default = ['127.0.0.1', 9000] 
+    default = ('127.0.0.1', 9000) 
     validator = listen_validator
 
 class Backlog(Setting):
@@ -133,7 +134,7 @@ class Backlog(Setting):
 
 class Processes(Setting):
     name = 'processes'
-    default = 4
+    default = multiprocessing.cpu_count()
     validator = uint_validator
 
 class Connections(Setting):
@@ -153,7 +154,7 @@ class Daemon(Setting):
 
 class Keepalive(Setting):
     name = 'keepalive_timeout'
-    default = 200
+    default = 120
     validator = uint_validator
 
 class User(Setting):

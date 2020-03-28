@@ -1,9 +1,14 @@
 # -*- coding: utf-8 -*-
 
+import os
+
 from lin.utils import bytes_to_str, str_to_bytes, http_date
 from lin.http.header import Header
 
 class IWriter:
+    def file(self):
+        raise NotImplementedError()
+
     def write(self, data):
         raise NotImplementedError()
 
@@ -18,6 +23,9 @@ class Writer(IWriter):
     def __init__(self, write):
         self._write = write
 
+    def file(self):
+        return None
+
     def write(self, data):
         self._write(data)
 
@@ -31,12 +39,8 @@ class Writer(IWriter):
         ''' close writer '''
         pass
 
-class FileWriter(IWriter):
-    #TODO
-    pass
-
 class Response:
-    def __init__(self, version, header, should_close, sock):
+    def __init__(self, version, header, should_close, sock, sendfile):
         self.version = version
         self._header = header
         self._body = None
@@ -44,6 +48,7 @@ class Response:
         self.status = None
         self.should_close = should_close
         self.header_sent = False
+        self._sendfile = sendfile
         self.init_body()
 
     @property
@@ -115,15 +120,28 @@ class Response:
     async def flush(self):
         await self.send_header()
 
-        for part in self.body:
+        file = self.body.file()
+        if not file is None and self._sendfile:
+            content_length = self.header.get('Content-Length')
+            offset = file.tell()
+            size = os.fstat(file.fileno()).st_size
+            count = int(content_length) if content_length else size - offset
+
             if self.is_chunked():
-                await self.sock.sendall(self.chunk_wrap(part))
-            else:
-                await self.sock.sendall(part)
+                await self.sock.sendall(b"%X\r\n" % count)
+
+            await self.sock.sendfile(file, offset, count)
+
+            if self.is_chunked():
+                await self.sock.sendall(b"\r\n")
+        else:
+            for part in self.body:
+                if self.is_chunked():
+                    await self.sock.sendall(self.chunk_wrap(part))
+                else:
+                    await self.sock.sendall(part)
 
         if self.is_chunked():
             await self.sock.sendall(self.chunk_wrap(b''))
 
         self.body.close()
-
-

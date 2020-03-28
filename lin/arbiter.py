@@ -27,7 +27,7 @@ class Arbiter:
         self.config = config
 
     def setup(self):
-        logger.info("Arbiter started")
+        logger.info("Arbiter booting with pid: {}".format(os.getpid()))
         logger.info("Listening at: %s", ",".join(['{}:{}'.format(*l) for l in self.config.listen]))
 
         logger.debug('Current configuration:\n{}'.format(
@@ -101,7 +101,11 @@ class Arbiter:
                     break
 
                 exitcode = os.WEXITSTATUS(status)
-                logger.info('Reap executor with pid: {} exit code: {}'.format(pid, exitcode))
+                logger.info("Reap executor with pid: {} exit code: {}".format(pid, exitcode))
+
+                if exitcode == Executor.BOOT_ERROR:
+                    logger.warning("Executor failed to boot")
+                    sys.exit(-1)
 
                 if pid in self.executors:
                     self.executors.remove(pid)

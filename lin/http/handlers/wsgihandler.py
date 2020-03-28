@@ -73,6 +73,9 @@ class WSGIWriter(IWriter):
         self._writer = writer
         self.bodyiter = bodyiter
 
+    def file(self):
+        return None
+
     def write(self, data):
         self._writer.write(data)
 
@@ -100,12 +103,15 @@ class WSGIError:
         for s in seq:
             self.write(s)
 
-class FileWrapper:
+class FileWrapper(IWriter):
     def __init__(self, filelike, blksize=8192):
         self.filelike = filelike
         self.blksize = blksize
         if hasattr(filelike, 'close'):
             self.close = filelike.close
+
+    def file(self):
+        return self.filelike
 
     def __iter__(self):
         while True:
@@ -178,4 +184,4 @@ class WSGIHandler(IHandler):
     def handle(self, request, response):
         environ, start_response = self.wsgi_create(request, response)
         bodyiter = self.app(environ, start_response)
-        response.body = WSGIWriter(response.body, bodyiter)
+        response.body = bodyiter if isinstance(bodyiter, FileWrapper) else WSGIWriter(response.body, bodyiter)

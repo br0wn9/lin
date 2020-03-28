@@ -2,6 +2,8 @@
 
 import logging
 
+import asyncio
+
 from lin.http.parser import HTTP_v1_x_Parser as HTTParser
 from lin.http.handlers.wsgihandler import WSGIHandler
 from lin.http.excepts import ( 
@@ -16,15 +18,17 @@ class Worker:
         self.conf = conf
         self.parser_cls = HTTParser
         self.handler = conf.handler
-        self.connections = 0
+        #self.semaphore = asyncio.Semaphore(conf.connections)
 
     def except_handle(self, addr, e):
         if isinstance(e, NoMoreData):
-            logger.debug('Ignored client: {}:{} disconnection early'.format(*addr)) 
+            logger.debug('Ignored client: {}:{} early disconnection'.format(*addr)) 
         elif isinstance(e, BrokenPipeError):
-            logger.debug('Ignored broken pipe')
+            logger.debug('Ignored client: {}:{} broken pipe'.format(*addr))
         elif isinstance(e, ConnectionResetError):
-            logger.debug('Ignored connection reset by peer')
+            logger.debug('Ignored client: {}:{} connection reset by peer'.format(*addr))
+        elif isinstance(e, asyncio.TimeoutError):
+            logger.debug('Ignored client: {}:{} keepalive timeout'.format(*addr))
         elif isinstance(e, (LimitRequestLine, LimitRequestHeader, InvalidRequestMethod, LimitRequestLine, LimitRequestLine)):
             logger.debug('Parsing exception {}'.format(str(e)))
         else:
@@ -32,8 +36,7 @@ class Worker:
             logger.exception(e)
 
     async def process(self, client, addr):
-        #async with asyncio.Semaphore(500):
-        self.connections += 1
+        #async with self.semaphore:
         parser = self.parser_cls(client, addr, self.conf)
         while True:
             try:
@@ -47,5 +50,4 @@ class Worker:
             if resp.should_close:
                 break
 
-        self.connections -= 1
         client.close()

@@ -78,6 +78,9 @@ class CommandInterface:
             self.print_verbose()
         elif args.test:
             self.test_config(args.test)
+        else:
+            self.parser.print_help()
+            sys.exit(0)
 
         cfg = load_config(args.config)
         config = Config.parse(cfg)

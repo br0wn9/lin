@@ -1,5 +1,5 @@
 
-def application(environ, start_response):
+def app(environ, start_response):
     body = b'hello world'
     status = '200 OK'
     headers = [('Content-type', 'text/plain; charset=utf-8'),

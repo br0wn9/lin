@@ -83,4 +83,4 @@ class AsyncSocketWrapper:
         return AsyncSocketWrapper(self._loop, sock), address
 
     async def sendfile(self, file, offset=0, count=None, *, fallback=True):
-        return await self._loop.sock_sendfile(self._sock, file, offset, count, fallback)
+        return await self._loop.sock_sendfile(self._sock, file, offset, count, fallback=fallback)

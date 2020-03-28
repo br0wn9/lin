@@ -7,7 +7,7 @@ class Header:
     def get(self, key):
         for k, v in self.fields:
             if k.lower() == key.lower():
-                return v.lower()
+                return v.lower() if isinstance(v, str) else v
 
     def set(self, key, value):
         self.fields.append((key, value))

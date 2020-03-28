@@ -45,8 +45,11 @@ class Reader:
                 self.buff = BytesIO()
                 return data
 
-    async def preread(self):
-        await self.read_part()
+    async def preread(self, timeout):
+        data = await self.sock.recv_timeout(self.buffer_size, timeout)
+        if not data:
+            raise NoMoreData()
+        self.buff.write(data)
 
     async def read_part(self):
         data = await self.sock.recv(self.buffer_size)
@@ -123,7 +126,7 @@ class HTTP_v1_x_Parser:
             raise LimitRequestHeader(self.cfg.limit_request_header)
 
     async def parse(self):
-        await self.reader.preread()
+        await self.reader.preread(self.cfg.keepalive_timeout)
 
         method, uri, version = await self.parse_request_line()
 
@@ -140,5 +143,5 @@ class HTTP_v1_x_Parser:
         
         header = Header()
         header.set('Server', __SERVER_NAME__)
-        resp = Response(version, header, req.should_close(), self.sock)
+        resp = Response(version, header, req.should_close(), self.sock, self.cfg.sendfile)
         return req, resp 

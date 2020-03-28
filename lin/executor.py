@@ -14,6 +14,9 @@ from lin.worker import Worker
 logger = logging.getLogger(__name__)
 
 class Executor:
+
+    BOOT_ERROR = 128
+
     def __init__(self, listeners, config):
         self.listeners = listeners
         self.config = config
@@ -62,9 +65,12 @@ class Executor:
         self.loop.add_signal_handler(signal.SIGTERM, self.sigterm_handler) 
 
     def run(self):
-        logger.info("Booting executor with pid: {}".format(self.pid))
+        logger.info("Executor booting with pid: {}".format(self.pid))
         self.init_signals()
         self.accepter.run()
+
+        logger.info("Executor exiting with pid: {}".format(self.pid))
+        self.exit(self.BOOT_ERROR)
 
     def __str__(self):
         return "<Executor {}>".format(self.pid)

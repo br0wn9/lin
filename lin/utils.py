@@ -48,10 +48,10 @@ def set_process_workdir(root):
 
 def set_process_owner(uid, gid):
     """ set user and group of processes """
-    if gid:
+    if gid != os.getegid():
         os.setgid(gid)
 
-    if uid:
+    if uid != os.geteuid():
         os.setuid(uid)
 
 class LazyFunction:
