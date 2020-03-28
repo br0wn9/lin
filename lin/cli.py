@@ -69,6 +69,13 @@ class CommandInterface:
             sys.stdout.write('Configuration file test succeeded')
             sys.exit(0)
 
+    def start(self, args):
+        cfg = load_config(args.config)
+        config = Config.parse(cfg)
+        logger_setup(*config.error_log)
+        arbiter = Arbiter(config)
+        arbiter.run()
+
     def run(self, args):
         args = self.parser.parse_args(args)
 
@@ -78,12 +85,8 @@ class CommandInterface:
             self.print_verbose()
         elif args.test:
             self.test_config(args.test)
+        elif args.config:
+            self.start(args)
         else:
             self.parser.print_help()
             sys.exit(0)
-
-        cfg = load_config(args.config)
-        config = Config.parse(cfg)
-        logger_setup(*config.error_log)
-        arbiter = Arbiter(config)
-        arbiter.run()

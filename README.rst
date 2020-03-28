@@ -47,7 +47,8 @@ Simple wsgi application:
         start_response(status, headers)
         return [body]
 
-Basic usage::
+Start command::
+
     $ lin -c config.py
 
 
