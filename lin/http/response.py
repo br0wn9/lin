@@ -1,12 +1,13 @@
 # -*- coding: utf-8 -*-
 
 import os
+import collections
 
 from lin.utils import bytes_to_str, str_to_bytes, http_date
 from lin.http.header import Header
 
 class IWriter:
-    def file(self):
+    def open(self):
         raise NotImplementedError()
 
     def write(self, data):
@@ -22,22 +23,31 @@ class IWriter:
 class Writer(IWriter):
     def __init__(self, write):
         self._write = write
+        self._file = None
+        self._content = None
 
-    def file(self):
-        return None
+    def open(self):
+        return self._file
 
     def write(self, data):
         self._write(data)
 
     def __iter__(self):
-        return self 
-
-    def __next__(self):
-        raise StopIteration()
+        yield from self._content
 
     def close(self):
-        ''' close writer '''
-        pass
+        if self._file:
+            self._file.close()
+
+    def set_file(self, file):
+        if not hasattr(file, 'fileno'):
+            raise TypeError("'file' object is not file")
+        self._file = file
+
+    def set_content(self, content):
+        if not isinstance(content, collections.Iterable):
+            raise TypeError("'content' object is not iterable")
+        self._content = content
 
 class Response:
     def __init__(self, version, header, should_close, sock, sendfile):
@@ -76,10 +86,8 @@ class Response:
 
     def set_status(self, status):
         self.status = status
-        try:
-            self.status_code = int(self.status.split()[0])
-        except ValueError:
-            self.status_code = None
+        status_code, _ = self.status.split(None, 1)
+        self.status_code = int(status_code)
 
     def is_chunked(self):
         if self.header.get('Transfer-Encoding') == 'chunked':
@@ -120,8 +128,8 @@ class Response:
     async def flush(self):
         await self.send_header()
 
-        file = self.body.file()
-        if not file is None and self._sendfile:
+        file = self.body.open()
+        if self._sendfile and not file is None:
             content_length = self.header.get('Content-Length')
             offset = file.tell()
             size = os.fstat(file.fileno()).st_size

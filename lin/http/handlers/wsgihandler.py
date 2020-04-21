@@ -68,27 +68,6 @@ class WSGIReader:
             raise StopIteration()
         return ret
 
-class WSGIWriter(IWriter):
-    def __init__(self, writer, bodyiter):
-        self._writer = writer
-        self.bodyiter = bodyiter
-
-    def file(self):
-        return None
-
-    def write(self, data):
-        self._writer.write(data)
-
-    def __iter__(self):
-        #return itertools.chain(self._writer, self.bodyiter)
-        yield from self.bodyiter
-
-    def close(self):
-        if hasattr(self.bodyiter, 'close'):
-            self.bodyiter.close()
-        self._writer.close()
-
-
 class WSGIError:
     def __init__(self, log):
         self.log = log
@@ -107,17 +86,21 @@ class FileWrapper(IWriter):
     def __init__(self, filelike, blksize=8192):
         self.filelike = filelike
         self.blksize = blksize
-        if hasattr(filelike, 'close'):
-            self.close = filelike.close
 
-    def file(self):
+    def open(self):
         return self.filelike
 
     def __iter__(self):
         while True:
           part = self.filelike.read(self.blksize)
-          if not part: return
+          if not part:
+              return
           yield part
+
+    def close(self):
+        if hasattr(self.filelike, 'close'):
+            self.filelike.close()
+
 
 class WSGIHandler(IHandler):
 
@@ -184,4 +167,7 @@ class WSGIHandler(IHandler):
     def handle(self, request, response):
         environ, start_response = self.wsgi_create(request, response)
         bodyiter = self.app(environ, start_response)
-        response.body = bodyiter if isinstance(bodyiter, FileWrapper) else WSGIWriter(response.body, bodyiter)
+        if isinstance(bodyiter, FileWrapper):
+            response.body = bodyiter
+        else:
+            response.body.set_content(bodyiter)
