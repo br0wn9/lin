@@ -13,7 +13,7 @@ from lin.worker import Worker
 
 logger = logging.getLogger(__name__)
 
-class Executor:
+class Manager:
 
     BOOT_ERROR = 128
 
@@ -65,13 +65,13 @@ class Executor:
         self.loop.add_signal_handler(signal.SIGTERM, self.sigterm_handler) 
 
     def run(self):
-        logger.info("Executor booting with pid: {}".format(self.pid))
+        logger.info("Manager booting with pid: {}".format(self.pid))
         self.init_signals()
         self.accepter.run()
 
-        logger.info("Executor exiting with pid: {}".format(self.pid))
+        logger.info("Manager exiting with pid: {}".format(self.pid))
         self.exit(self.BOOT_ERROR)
 
     def __str__(self):
-        return "<Executor {}>".format(self.pid)
+        return "<Manager {}>".format(self.pid)
 

@@ -1,0 +1,77 @@
+listen
+
+     The listening address of the service.
+
+     default: 127.0.0.1:9000
+
+backlog
+
+    The maximum number of pending connections.
+
+    default: 1024
+
+processes
+
+    The number of worker processes.
+
+    default: number of CPU cores
+
+workdir
+
+    The working directory of the application.
+
+    default: current directory
+
+daemon
+
+    Detaches the processes from the controlling terminal.
+
+    default: False
+
+keepalive_timeout
+
+    The number of seconds to wait for request.
+
+    default: 60
+
+user
+
+    Switch  processes to run as this user and group.
+
+    default: current user:group
+
+umask
+
+    A bit mask for the file mode.
+
+    default: 0o022
+
+error_log
+
+    The error log path and level.
+
+    default: -, info
+
+buffer_size
+
+    The maximum size of read buffer.
+
+    default: 8192
+
+limit_request_line
+
+    The maximum size of HTTP request line.
+
+    default: 8192
+
+limit_request_header
+
+    The maximum size of HTTP request header.
+
+    default: 8192
+
+sendfile
+
+    Disable the use of sendfile.
+
+    default: False

@@ -11,7 +11,7 @@ asyncio library, Easy to extensions and Easy to use.
 Documentation
 -------------
 
-In development
+See docs/setting.txt for more details.
 
 Requirements
 ------------

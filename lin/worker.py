@@ -30,7 +30,7 @@ class Worker:
         elif isinstance(e, asyncio.TimeoutError):
             logger.debug('Ignored client: {}:{} keepalive timeout'.format(*addr))
         elif isinstance(e, (LimitRequestLine, LimitRequestHeader, InvalidRequestMethod, LimitRequestLine, LimitRequestLine)):
-            logger.debug('Parsing exception {}'.format(str(e)))
+            logger.debug('Parsing exception {} from {}:{}'.format(str(e), *addr))
         else:
             logger.warning('Unknown exception: {} from {}:{}'.format(str(e), *addr))
             logger.exception(e)

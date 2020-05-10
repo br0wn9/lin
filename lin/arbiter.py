@@ -11,7 +11,7 @@ import logging
 
 
 from lin.sock import create_socks
-from lin.executor import Executor
+from lin.manager import Manager
 from lin.utils import daemonize, set_process_owner
 
 
@@ -22,7 +22,7 @@ class Arbiter:
     SIGNALS = {}
 
     def __init__(self, config):
-        self.executors = set()
+        self.managers = set()
         self.sig_queue = queue.Queue()
         self.config = config
 
@@ -63,24 +63,24 @@ class Arbiter:
             self.sig_queue.put(self.SIGNALS[sig])
 
     def sigchld_handler(self, sig, frame):
-        self.reap_executors()
+        self.reap_managers()
 
     @_signal.__func__(SIGNALS, signal.SIGTERM)
     def sigterm(self):
         '''quick shutdown'''
-        self.finalize_executors(signal.SIGTERM)
+        self.finalize_managers(signal.SIGTERM)
         sys.exit()
 
     @_signal.__func__(SIGNALS, signal.SIGINT)
     def sigint(self):
         '''quick shutdown'''
-        self.finalize_executors(signal.SIGINT)
+        self.finalize_managers(signal.SIGINT)
         sys.exit()
 
     @_signal.__func__(SIGNALS, signal.SIGQUIT)
     def sigquit(self):
         '''graceful shutdown'''
-        self.finalize_executors(signal.SIGQUIT)
+        self.finalize_managers(signal.SIGQUIT)
         sys.exit()
 
     @_signal.__func__(SIGNALS, signal.SIGHUP)
@@ -93,7 +93,7 @@ class Arbiter:
         #TODO
         pass
 
-    def reap_executors(self):
+    def reap_managers(self):
         try:
             while True:
                 pid, status = os.waitpid(-1, os.WNOHANG)
@@ -101,63 +101,63 @@ class Arbiter:
                     break
 
                 exitcode = os.WEXITSTATUS(status)
-                logger.info("Reap executor with pid: {} exit code: {}".format(pid, exitcode))
+                logger.info("Reap manager with pid: {} exit code: {}".format(pid, exitcode))
 
-                if exitcode == Executor.BOOT_ERROR:
-                    logger.warning("Executor failed to boot")
+                if exitcode == Manager.BOOT_ERROR:
+                    logger.warning("Manager failed to boot")
                     sys.exit(-1)
 
-                if pid in self.executors:
-                    self.executors.remove(pid)
+                if pid in self.managers:
+                    self.managers.remove(pid)
                     continue
         except OSError as e:
             if e.errno != errno.ECHILD:
                 raise
 
-    def spawn_executor(self):
+    def spawn_manager(self):
         pid = os.fork()
         if pid != 0:
             return pid
-        executor = Executor(self.listeners, self.config)
-        executor.run()
+        manager = Manager(self.listeners, self.config)
+        manager.run()
 
-    def kill_executor(self, pid, sig):
+    def kill_manager(self, pid, sig):
         try:
             os.kill(pid, sig)
         except ProcessLookupError as e:
             return #ignore
 
-    def initialize_executors(self):
-        '''initialize executors'''
-        while self.config.processes > len(self.executors):
-            pid = self.spawn_executor()
-            self.executors.add(pid)
+    def initialize_managers(self):
+        '''initialize managers'''
+        while self.config.processes > len(self.managers):
+            pid = self.spawn_manager()
+            self.managers.add(pid)
 
-    def finalize_executors(self, sig):
-        '''finalize executors'''
-        for pid in self.executors.copy():
-            if pid in self.executors:
-                self.executors.remove(pid)
-            self.kill_executor(pid, sig)
+    def finalize_managers(self, sig):
+        '''finalize managers'''
+        for pid in self.managers.copy():
+            if pid in self.managers:
+                self.managers.remove(pid)
+            self.kill_manager(pid, sig)
             time.sleep(0.1)
 
-    def manage_executors(self):
-        '''manage executors'''
-        if self.config.processes > len(self.executors):
-            self.initialize_executors()
+    def keep_managers(self):
+        '''keep managers'''
+        if self.config.processes > len(self.managers):
+            self.initialize_managers()
 
-        while self.config.processes < len(self.executors):
-            pid = self.executors.pop()
-            self.kill_executor(pid, signal.SIGQUIT)
+        while self.config.processes < len(self.managers):
+            pid = self.managers.pop()
+            self.kill_manager(pid, signal.SIGQUIT)
             
 
     def run(self):
         self.setup()
         self.signal_register()
-        self.initialize_executors()
+        self.initialize_managers()
         while True:
             try:
                 sig_handler = self.sig_queue.get(timeout = 3)
                 sig_handler(self)
             except queue.Empty:
-                self.manage_executors()
+                self.keep_managers()

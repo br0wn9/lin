@@ -20,7 +20,6 @@ class AsyncSocketWrapper:
     def __init__(self, loop, sock):
         self._loop = loop
         self._sock = sock
-        #self._sock.setblocking(True)
 
     def getsockname(self):
         return self._sock.getsockname()
@@ -61,10 +60,10 @@ class AsyncSocketWrapper:
                     return data
 
     def close(self):
-        self._sock.close()
+        self._sock.shutdown(socket.SHUT_RDWR)
 
     async def recv_timeout(self, nbytes, timeout):
-        return await asyncio.wait_for(self._loop.sock_recv(self._sock, nbytes), timeout=timeout)
+        return await asyncio.wait_for(self.recv(nbytes), timeout=timeout) if timeout else await self.recv(nbytes)
 
     async def recv(self, nbytes):
         return await self._loop.sock_recv(self._sock, nbytes)

@@ -23,9 +23,10 @@ class Accepter:
             client, addr = await listener.accept()
             self.handle(client, addr)
 
-    def listeners(self):
-        return [self.accept(AsyncSocketWrapper(self.loop, sock)) for sock in self.socks]
+    def listen(self):
+        for sock in self.socks:
+            self.loop.create_task(self.accept(AsyncSocketWrapper(self.loop, sock)))
 
     def run(self):
-        listeners = self.listeners()
-        self.loop.run_until_complete(asyncio.wait(listeners))
+        self.listen()
+        self.loop.run_forever()

@@ -108,7 +108,7 @@ class Response:
 
         status_line = "HTTP/{} {}\r\n".format(self.version, self.status)
         self.header.set('Date', http_date())
-        self.header.set('Connection', 'Close' if self.should_close else 'keep-alive')
+        self.header.set('Connection', 'close' if self.should_close else 'keep-alive')
         header_str = self.header.dump()
         return status_line + header_str
 

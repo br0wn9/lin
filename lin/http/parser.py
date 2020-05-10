@@ -143,5 +143,5 @@ class HTTP_v1_x_Parser:
         
         header = Header()
         header.set('Server', __SERVER_NAME__)
-        resp = Response(version, header, req.should_close(), self.sock, self.cfg.sendfile)
+        resp = Response(version, header, req.should_close() if self.cfg.keepalive_timeout else True, self.sock, self.cfg.sendfile)
         return req, resp 
