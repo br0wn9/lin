@@ -50,16 +50,15 @@ class Writer(IWriter):
         self._content = content
 
 class Response:
-    def __init__(self, version, header, should_close, sock, sendfile):
+    def __init__(self, version, header, should_close, writer, sendfile):
         self.version = version
         self._header = header
         self._body = None
-        self.sock = sock
+        self.writer = writer
         self.status = None
         self.should_close = should_close
         self.header_sent = False
         self._sendfile = sendfile
-        self.init_body()
 
     @property
     def header(self):
@@ -71,8 +70,12 @@ class Response:
             raise TypeError('{} must be an Header'.format(header))
         self._header = header
 
-    def init_body(self):
+    def __enter__(self):
         self._body = Writer(self.write)
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self._body = None
 
     @property
     def body(self):
@@ -114,15 +117,15 @@ class Response:
 
     def write(self, data):
         if not self.header_sent:
-            self.sock.blocking_write(str_to_bytes(self.header_dump()))
+            self.writer.blocking_write(str_to_bytes(self.header_dump()))
             self.header_sent = True
         if self.is_chunked():
             data = self.chunk_wrap(data)
-        self.sock.blocking_write(data)
+        self.writer.blocking_write(data)
 
     async def send_header(self):
         if not self.header_sent:
-            await self.sock.sendall(str_to_bytes(self.header_dump()))
+            await self.writer.sendall(str_to_bytes(self.header_dump()))
             self.header_sent = True
 
     async def flush(self):
@@ -136,20 +139,20 @@ class Response:
             count = int(content_length) if content_length else size - offset
 
             if self.is_chunked():
-                await self.sock.sendall(b"%X\r\n" % count)
+                await self.writer.sendall(b"%X\r\n" % count)
 
-            await self.sock.sendfile(file, offset, count)
+            await self.writer.sendfile(file, offset, count)
 
             if self.is_chunked():
-                await self.sock.sendall(b"\r\n")
+                await self.writer.sendall(b"\r\n")
         else:
             for part in self.body:
                 if self.is_chunked():
-                    await self.sock.sendall(self.chunk_wrap(part))
+                    await self.writer.sendall(self.chunk_wrap(part))
                 else:
-                    await self.sock.sendall(part)
+                    await self.writer.sendall(part)
 
         if self.is_chunked():
-            await self.sock.sendall(self.chunk_wrap(b''))
+            await self.writer.sendall(self.chunk_wrap(b''))
 
         self.body.close()

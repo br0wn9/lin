@@ -77,9 +77,8 @@ class HTTP_v1_x_Parser:
     VERSIONS = ('1.0', '1.1')
     METHODS = ('GET', 'POST', 'HEAD', 'OPTIONS', 'PUT', 'PATCH', 'DELETE', 'TRACE', 'CONNECT')
 
-    def __init__(self, sock, addr, cfg):
+    def __init__(self, sock, cfg):
         self.sock = sock
-        self.addr = addr
         self.cfg = cfg
         self.reader = Reader(sock, cfg.buffer_size)
 
@@ -133,14 +132,12 @@ class HTTP_v1_x_Parser:
         fields = await self.parse_headers()
         header = Header(fields)
 
-        req = Request(method, uri, version, header, self.sock.getsockname(), self.reader)
+        req = Request(method, uri, version, header, self.sock.local_addr, self.reader)
 
         expect = req.header.get('expect') 
         if expect and expect == '100-continue':
             await self.sock.sendall(b"HTTP/1.1 100 Continue\r\n\r\n")
 
-        req.init_body()
-        
         header = Header()
         header.set('Server', __SERVER_NAME__)
         resp = Response(version, header, req.should_close() if self.cfg.keepalive_timeout else True, self.sock, self.cfg.sendfile)

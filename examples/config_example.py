@@ -6,7 +6,7 @@ daemon = False
 
 umask = 0o022
 
-user = '_www:staff'
+user = 'staff:staff'
 
 workdir = './examples/'
 

@@ -16,7 +16,7 @@ class Accepter:
         self.alive = False
 
     def handle(self, client, addr):
-        self.loop.create_task(self.worker.process(client, addr))
+        self.loop.create_task(self.worker.process(client))
 
     async def accept(self, listener):
         while self.alive:

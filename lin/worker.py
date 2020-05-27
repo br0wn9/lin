@@ -35,16 +35,17 @@ class Worker:
             logger.warning('Unknown exception: {} from {}:{}'.format(str(e), *addr))
             logger.exception(e)
 
-    async def process(self, client, addr):
+    async def process(self, client):
         #async with self.semaphore:
-        parser = self.parser_cls(client, addr, self.conf)
+        parser = self.parser_cls(client, self.conf)
         while True:
             try:
                 req, resp = await parser.parse()
-                self.handler.handle(req, resp)
-                await resp.flush()
+                with req, resp:
+                    self.handler.handle(req, resp)
+                    await resp.flush()
             except Exception as e:
-                self.except_handle(addr, e)
+                self.except_handle(client.remote_addr, e)
                 break
 
             if resp.should_close:

@@ -15,10 +15,10 @@ class LogHandler(IHandler):
 
     def handle(self, request, response):
         atoms = {
-                'remote_addr': '-',
-                'remote_port': '-',
-                'server_addr': '-',
-                'server_port': '-',
+                'remote_addr': response.writer.remote_addr,
+                'server_addr': response.writer.local_addr,
+                #'remote_port': '-',
+                #'server_port': '-',
                 'time_local': time.strftime('[%d/%b/%Y:%H:%M:%S %z]'),
                 'request_method': request.method,
                 'request': '-',

@@ -21,10 +21,12 @@ class AsyncSocketWrapper:
         self._loop = loop
         self._sock = sock
 
-    def getsockname(self):
+    @property
+    def local_addr(self):
         return self._sock.getsockname()
 
-    def getpeername(self):
+    @property
+    def remote_addr(self):
         return self._sock.getpeername()
 
     def blocking_write(self, data):
@@ -60,6 +62,10 @@ class AsyncSocketWrapper:
                     return data
 
     def close(self):
+        self._loop.remove_reader(self._sock.fileno())
+        self._sock.close()
+
+    def shutdown(self):
         self._sock.shutdown(socket.SHUT_RDWR)
 
     async def recv_timeout(self, nbytes, timeout):

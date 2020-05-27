@@ -135,15 +135,11 @@ class Request:
             raise TypeError('{} must be an IReader'.format(reader))
         self._body = reader
         
-    def init_body(self):
-        content_length = self.header.get("Content-Length")
-        if content_length:
-            try:
-                content_length = int(content_length)
-            except ValueError:
-                raise InvalidHeader("Content-Length")
-            if content_length < 0:
-                raise InvalidHeader("Content-Length")
+    def __enter__(self):
+        content_length = self.header.get("Content-Length", int)
+
+        if content_length and content_length < 0:
+            raise InvalidHeader("Content-Length")
 
         chunked = self.header.get("Transfer-Encoding") == 'chunked'
         if chunked:
@@ -153,8 +149,13 @@ class Request:
         else:
             self.body = EOFReader(self.reader)
 
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self._body = None
+
     def should_close(self):
-        value = self.header.get('connection')
+        value = self.header.get('Connection')
         if value == 'close':
             return True
         elif value == 'keep-alive':

@@ -4,10 +4,21 @@ class Header:
     def __init__(self, fields = None):
         self.fields = fields if fields else []
 
-    def get(self, key):
+    def _get(self, key):
         for k, v in self.fields:
             if k.lower() == key.lower():
-                return v.lower() if isinstance(v, str) else v
+                return v
+
+    def get(self, key, type = None, default = None):
+        rv = self._get(key)
+        if rv:
+            if type is not None:
+                try:
+                    rv = type(rv)
+                except ValueError:
+                    rv = default
+            return rv
+        return default
 
     def set(self, key, value):
         self.fields.append((key, value))
