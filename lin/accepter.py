@@ -2,31 +2,34 @@
 
 import asyncio
 
-from lin.sock import AsyncSocketWrapper
-
 class Accepter:
-    def __init__(self, loop, socks, worker, conf):
-        self.socks = socks
+    def __init__(self, connectors, worker, max_conn, loop):
+        self.connectors = connectors
         self.worker = worker 
-        self.conf = conf
         self.loop = loop
+        self.sem = asyncio.BoundedSemaphore(max_conn)
         self.alive = True
 
     def exit(self):
         self.alive = False
+        for connector in self.connectors:
+            connector.close()
 
     def handle(self, client, addr):
-        self.loop.create_task(self.worker.process(client))
+        task = self.loop.create_task(self.worker.process(client))
+        task.add_done_callback(lambda r: self.sem.release())
 
-    async def accept(self, listener):
+    async def accept(self, connector):
         while self.alive:
-            client, addr = await listener.accept()
+            await self.sem.acquire()
+            client, addr = await connector.accept()
             self.handle(client, addr)
 
-    def listen(self):
-        for sock in self.socks:
-            self.loop.create_task(self.accept(AsyncSocketWrapper(self.loop, sock)))
+    def setup(self):
+        for connector in self.connectors:
+            connector.open(self.loop)
+            self.loop.create_task(self.accept(connector))
 
     def run(self):
-        self.listen()
+        self.setup()
         self.loop.run_forever()

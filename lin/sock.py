@@ -4,18 +4,6 @@ import asyncio
 import io
 import socket, select, errno
 
-def create_socks(endpoints, backlog):
-    socks = []
-    for endpoint in endpoints:
-        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-
-        sock.bind(endpoint)
-        sock.listen(backlog)
-        sock.setblocking(False)
-        socks.append(sock)
-    return socks
-
 class AsyncSocketWrapper:
     def __init__(self, loop, sock):
         self._loop = loop

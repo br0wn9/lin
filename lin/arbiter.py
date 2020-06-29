@@ -10,7 +10,7 @@ import functools
 import logging
 
 
-from lin.sock import create_socks
+from lin.connector import AsyncConnector
 from lin.manager import Manager
 from lin.utils import daemonize, set_process_owner
 
@@ -41,8 +41,7 @@ class Arbiter:
 
         set_process_owner(*self.config.user)
 
-        self.listeners = create_socks(self.config.listen, self.config.backlog)
-         
+        self.connectors = [AsyncConnector(endpoint, self.config.backlog) for endpoint in self.config.listen]
 
     def signal_register(self):
         [signal.signal(sig, self.sig_handler) for sig in self.SIGNALS.keys()]
@@ -118,7 +117,7 @@ class Arbiter:
         pid = os.fork()
         if pid != 0:
             return pid
-        manager = Manager(self.listeners, self.config)
+        manager = Manager(self.connectors, self.config)
         manager.run()
 
     def kill_manager(self, pid, sig):

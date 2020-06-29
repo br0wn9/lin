@@ -7,8 +7,7 @@ from io import BytesIO
 
 from urllib.parse import urlsplit
 
-from lin.http.excepts import InvalidHeader
-from lin.http.excepts import InvalidChunk
+from lin.http.excepts import InvalidChunk, InvalidHeader
 from lin.http.header import Header
 
 
@@ -161,4 +160,4 @@ class Request:
         elif value == 'keep-alive':
             return False
         else:
-            return self.version <= '1.0'
+            return self.version <= 'HTTP/1.0'

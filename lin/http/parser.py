@@ -74,7 +74,7 @@ class Reader:
         
 class HTTP_v1_x_Parser:
 
-    VERSIONS = ('1.0', '1.1')
+    VERSIONS = ('HTTP/1.0', 'HTTP/1.1')
     METHODS = ('GET', 'POST', 'HEAD', 'OPTIONS', 'PUT', 'PATCH', 'DELETE', 'TRACE', 'CONNECT')
 
     def __init__(self, sock, cfg):
@@ -104,11 +104,11 @@ class HTTP_v1_x_Parser:
         if method not in self.METHODS:
             raise InvalidRequestMethod(method)
 
-        ver_parts = parts[2].split('/', 1)
-        if len(ver_parts) != 2 or ver_parts[0].upper() != 'HTTP' or ver_parts[1] not in self.VERSIONS:
+        version = parts[2].upper()
+        if version not in self.VERSIONS:
             raise InvalidHTTPVersion(part[2])
 
-        return method, parts[1], ver_parts[1]
+        return method, parts[1], version
 
     async def read_request_line(self):
         try:

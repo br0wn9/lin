@@ -14,7 +14,7 @@ setup(
     version="{}.{}.{}".format(*__VERSION__),
     url="https://github.com/br0wn9/lin",
     author="Brown Guan",
-    author_email="br0wn.l61g@gmail.com",
+    author_email="br0acwn@gmail.com",
     description="HTTP Web Server",
     long_description=long_description,
     license="BSD",

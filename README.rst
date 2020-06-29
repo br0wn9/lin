@@ -1,9 +1,7 @@
 Lin
 ----
 
-Lin is a high performance and scalable Python HTTP Server. Base on Python
-
-asyncio library, Easy to extensions and Easy to use.
+Lin is a high performance and scalable Python HTTP Server. Base on Python asyncio library. Easy to extensions and Easy to use.
 
 ** NOTE: Werkzeug WSGI-based frameworks are not currently supported **
 

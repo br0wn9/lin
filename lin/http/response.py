@@ -7,7 +7,11 @@ from lin.utils import bytes_to_str, str_to_bytes, http_date
 from lin.http.header import Header
 
 class IWriter:
-    def open(self):
+
+    def tell(self):
+        return -1
+
+    def fileno(self):
         raise NotImplementedError()
 
     def write(self, data):
@@ -23,42 +27,47 @@ class IWriter:
 class Writer(IWriter):
     def __init__(self, write):
         self._write = write
-        self._file = None
-        self._content = None
-
-    def open(self):
-        return self._file
+        self._raw = None
 
     def write(self, data):
         self._write(data)
 
     def __iter__(self):
-        yield from self._content
+        yield from self._raw
+
+    def tell(self):
+        if hasattr(self._raw, 'tell'):
+            return self._raw.tell()
+        else:
+            return super().tell()
+
+    def fileno(self):
+        if hasattr(self._raw, 'fileno'):
+            return self._raw.fileno()
+        else:
+            return super().fileno()
 
     def close(self):
-        if self._file:
-            self._file.close()
+        if hasattr(self._raw, 'fileno'):
+            self._raw.close()
 
-    def set_file(self, file):
-        if not hasattr(file, 'fileno'):
-            raise TypeError("'file' object is not file")
-        self._file = file
-
-    def set_content(self, content):
-        if not isinstance(content, collections.Iterable):
-            raise TypeError("'content' object is not iterable")
-        self._content = content
+    def __call__(self, raw):
+        if not self._raw is None:
+            raise AssertionError("body has been initialized")
+        if not (isinstance(raw, collections.Iterable) or hasattr(raw, 'fileno')):
+            raise TypeError("'raw' object is not iterable or file")
+        self._raw = raw
 
 class Response:
     def __init__(self, version, header, should_close, writer, sendfile):
         self.version = version
         self._header = header
         self._body = None
+        self._status = None
         self.writer = writer
-        self.status = None
         self.should_close = should_close
         self.header_sent = False
-        self._sendfile = sendfile
+        self.sendfile = sendfile
 
     @property
     def header(self):
@@ -71,7 +80,7 @@ class Response:
         self._header = header
 
     def __enter__(self):
-        self._body = Writer(self.write)
+        self._body = Writer(self.blocking_write)
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
@@ -87,9 +96,14 @@ class Response:
             raise TypeError('{} must be an IWriter'.format(writer))
         self._body = writer
 
-    def set_status(self, status):
-        self.status = status
-        status_code, _ = self.status.split(None, 1)
+    @property
+    def status(self):
+        return self._status
+
+    @status.setter
+    def status(self, status):
+        self._status = status
+        status_code, status_text = self.status.split(None, 1)
         self.status_code = int(status_code)
 
     def is_chunked(self):
@@ -97,62 +111,65 @@ class Response:
             return True
         if self.header.get('Content-Length') is not None:
             return False
-        elif self.version <= '1.0':
+        elif self.version <= 'HTTP/1.0':
             return False
         return False
 
-    def chunk_wrap(self, data):
-        chunk_size = b"%X\r\n" % len(data)
-        return b''.join([chunk_size + data + b'\r\n'])
-
-    def header_dump(self):
+    def header_to_bytes(self):
         if self.status is None:
-            raise AssertionError("Response header not set")
+            raise AssertionError("response status not set")
 
-        status_line = "HTTP/{} {}\r\n".format(self.version, self.status)
+        status_line = "{} {}\r\n".format(self.version, self.status)
         self.header.set('Date', http_date())
         self.header.set('Connection', 'close' if self.should_close else 'keep-alive')
-        header_str = self.header.dump()
-        return status_line + header_str
+        header_bytes = self.header.to_bytes()
+        return str_to_bytes(status_line) + header_bytes
 
-    def write(self, data):
-        if not self.header_sent:
-            self.writer.blocking_write(str_to_bytes(self.header_dump()))
-            self.header_sent = True
+    def blocking_write(self, data):
+        self.blocking_send_header()
         if self.is_chunked():
-            data = self.chunk_wrap(data)
+            data = self.to_chunk(data)
         self.writer.blocking_write(data)
+
+    def blocking_send_header(self):
+        if not self.header_sent:
+            self.writer.blocking_write(self.header_to_bytes())
+            self.header_sent = True
+
+    @classmethod
+    def to_chunk(cls, data):
+        size = b"%X\r\n" % len(data)
+        return b''.join([size + data + b'\r\n'])
 
     async def send_header(self):
         if not self.header_sent:
-            await self.writer.sendall(str_to_bytes(self.header_dump()))
+            await self.writer.sendall(self.header_to_bytes())
             self.header_sent = True
 
     async def flush(self):
         await self.send_header()
 
-        file = self.body.open()
-        if self._sendfile and not file is None:
-            content_length = self.header.get('Content-Length')
-            offset = file.tell()
-            size = os.fstat(file.fileno()).st_size
-            count = int(content_length) if content_length else size - offset
+        if self.sendfile and self.body.tell() >= 0:
+            content_length = int(self.header.get('Content-Length'))
+            offset = self.body.tell()
+            size = os.fstat(self.body.fileno()).st_size
+            count = content_length if content_length else size - offset
 
             if self.is_chunked():
                 await self.writer.sendall(b"%X\r\n" % count)
 
-            await self.writer.sendfile(file, offset, count)
+            await self.writer.sendfile(self.body, offset, count)
 
             if self.is_chunked():
                 await self.writer.sendall(b"\r\n")
         else:
             for part in self.body:
                 if self.is_chunked():
-                    await self.writer.sendall(self.chunk_wrap(part))
+                    await self.writer.sendall(self.to_chunk(part))
                 else:
                     await self.writer.sendall(part)
 
         if self.is_chunked():
-            await self.writer.sendall(self.chunk_wrap(b''))
+            await self.writer.sendall(self.to_chunk(b''))
 
         self.body.close()

@@ -17,23 +17,20 @@ class Manager:
 
     BOOT_ERROR = 128
 
-    def __init__(self, listeners, config):
-        self.listeners = listeners
+    def __init__(self, connectors, config):
+        self.connectors = connectors
         self.config = config
         self.loop = asyncio.get_event_loop()
         self.setup()
 
     def setup(self):
-        self.accepter = Accepter(self.loop, self.listeners, Worker(self.config), self.config)
+        self.accepter = Accepter(self.connectors, Worker(self.config), self.config.connections, self.loop)
 
     @property
     def pid(self):
         return os.getpid()
 
     def exit(self, error):
-        for listener in self.listeners:
-            listener.close()
-
         self.accepter.exit()
         sys.exit(error)
 

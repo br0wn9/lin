@@ -1,4 +1,4 @@
-
+from lin.utils import str_to_bytes
 
 class Header:
     def __init__(self, fields = None):
@@ -26,8 +26,8 @@ class Header:
     def update(self, fields):
         self.fields += fields
 
-    def dump(self):
-        return '\r\n'.join(['{}: {}'.format(*field) for field in self.fields]) + '\r\n\r\n'
+    def to_bytes(self):
+        return str_to_bytes('\r\n'.join(['{}: {}'.format(*field) for field in self.fields]) + '\r\n\r\n')
 
     def __iter__(self):
         yield from self.fields

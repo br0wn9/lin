@@ -1,14 +1,20 @@
 # -*- coding: utf-8 -*-
 
 import logging
-
+import socket
 import asyncio
+
+from lin.utils import str_to_bytes
+from lin.version import __SERVER_NAME__
+
+from lin.http.header import Header
+from lin.http.response import Response
 
 from lin.http.parser import HTTP_v1_x_Parser as HTTParser
 from lin.http.handlers.wsgihandler import WSGIHandler
 from lin.http.excepts import ( 
         NoMoreData, LimitRequestLine, LimitRequestHeader,
-        InvalidRequestMethod, LimitRequestLine, LimitRequestLine
+        InvalidRequestMethod, InvalidHeader
         )
 
 logger = logging.getLogger(__name__)
@@ -18,25 +24,28 @@ class Worker:
         self.conf = conf
         self.parser_cls = HTTParser
         self.handler = conf.handler
-        #self.semaphore = asyncio.Semaphore(conf.connections)
 
-    def except_handle(self, addr, e):
-        if isinstance(e, NoMoreData):
-            logger.debug('Ignored client: {}:{} early disconnection'.format(*addr)) 
-        elif isinstance(e, BrokenPipeError):
-            logger.debug('Ignored client: {}:{} broken pipe'.format(*addr))
-        elif isinstance(e, ConnectionResetError):
-            logger.debug('Ignored client: {}:{} connection reset by peer'.format(*addr))
-        elif isinstance(e, asyncio.TimeoutError):
-            logger.debug('Ignored client: {}:{} keepalive timeout'.format(*addr))
-        elif isinstance(e, (LimitRequestLine, LimitRequestHeader, InvalidRequestMethod, LimitRequestLine, LimitRequestLine)):
-            logger.debug('Parsing exception {} from {}:{}'.format(str(e), *addr))
-        else:
-            logger.warning('Unknown exception: {} from {}:{}'.format(str(e), *addr))
-            logger.exception(e)
+    async def handle_except(self, sock, status_code, reason):
+        TEMPLATE = '''<html>
+            <head><title>{0} {1}</title></head>
+            <body bgcolor="white">
+                <center><h1>{0} {1}</h1></center>
+            </body>
+        </html>
+        '''
+        content = str_to_bytes(TEMPLATE.format(status_code, reason))
+        header = Header()
+        header.set('Server', __SERVER_NAME__)
+        header.set('Content-Type', 'text/html')
+        header.set('Content-Length', len(content))
+
+        resp = Response('1.1', header, True, sock, False)
+        resp.status = '{} {}'.format(status_code, reason)
+        with resp:
+            resp.body([content])
+            await resp.flush()
 
     async def process(self, client):
-        #async with self.semaphore:
         parser = self.parser_cls(client, self.conf)
         while True:
             try:
@@ -44,10 +53,24 @@ class Worker:
                 with req, resp:
                     self.handler.handle(req, resp)
                     await resp.flush()
-            except Exception as e:
-                self.except_handle(client.remote_addr, e)
+            except NoMoreData as e:
+                logger.debug('Ignore client disconnect early')
                 break
-
+            except socket.error as e:
+                logger.debug('Socket exception: {}'.format(e))
+                break
+            except asyncio.TimeoutError as e:
+                logger.debug('Ignore client connection timeout')
+                break
+            except (LimitRequestLine, LimitRequestHeader, InvalidHeader, InvalidRequestMethod) as e:
+                logger.warning('Parsing exception {}'.format(e))
+                await self.handle_except(client, 400, 'Bad Request')
+                break
+            except Exception as e:
+                logger.warning('Unknown exception: {}'.format(e))
+                logger.exception(e)
+                await self.handle_except(client, 500, 'Internal Server Error')
+                break
             if resp.should_close:
                 break
 

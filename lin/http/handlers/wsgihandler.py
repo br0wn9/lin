@@ -87,8 +87,17 @@ class FileWrapper(IWriter):
         self.filelike = filelike
         self.blksize = blksize
 
-    def open(self):
-        return self.filelike
+    def tell(self):
+        if hasattr(self.filelike, 'tell'):
+            return self.filelike.tell()
+        else:
+            return super().tell()
+
+    def fileno(self):
+        if hasattr(self.filelike, 'fileno'):
+            return self.filelike.fileno()
+        else:
+            return super().fileno()
 
     def __iter__(self):
         while True:
@@ -155,9 +164,9 @@ class WSGIHandler(IHandler):
                 finally:
                     exc_info = None
             elif not resp.status is None:
-                raise AssertionError("Response header already set")
+                raise AssertionError("response header already set")
 
-            resp.set_status(status)
+            resp.status = status
             resp.header.update(headers)
 
             return resp.body.write
@@ -170,4 +179,4 @@ class WSGIHandler(IHandler):
         if isinstance(bodyiter, FileWrapper):
             response.body = bodyiter
         else:
-            response.body.set_content(bodyiter)
+            response.body(bodyiter)
