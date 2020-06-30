@@ -2,7 +2,7 @@
 
 import re
 
-from urllib.parse import unquote, urlsplit
+from urllib.parse import unquote
 
 from lin.http.handlers.ihandler import IHandler
 
@@ -22,7 +22,6 @@ class RegexPatternRule(IRule):
         if match:
             groups = match.groups()
             request.uri = self.replacement.format(*groups)
-            request.uriparts = urlsplit(request.uri)
             return True
         return False
 

@@ -17,7 +17,7 @@ class UriRule(IRule):
         self.regex = re.compile(self.pattern)
 
     def match(self, request):
-        uri = unquote(request.uriparts.path, 'latin1')
+        uri = unquote(request.uri, 'latin1')
         return self.regex.match(uri)
 
 class RouteHandler(IHandler):

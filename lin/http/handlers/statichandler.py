@@ -15,8 +15,8 @@ class StaticHandler(IHandler):
         self.location = location
         self.root = root
 
-    def loader(self, path_info):
-        filepath = path_info[len(self.location):]
+    def loader(self, path):
+        filepath = path[len(self.location):]
         filename = os.path.join(self.root, filepath)
         stats = os.stat(filename)
 
@@ -29,11 +29,11 @@ class StaticHandler(IHandler):
         response.body([str_to_bytes(http_message)])
 
     def handle(self, request, response):
-        path_info = unquote(request.uriparts.path, 'latin1')
+        path = unquote(request.uri, 'latin1')
 
-        if path_info.startswith(self.location):
+        if path.startswith(self.location):
             try:
-                fd, filename, mtime, size = self.loader(path_info)
+                fd, filename, mtime, size = self.loader(path)
 
                 mime_type, encoding = mimetypes.guess_type(filename)
                 mime_type if mime_type else 'text/plain'

@@ -132,7 +132,7 @@ class HTTP_v1_x_Parser:
         fields = await self.parse_headers()
         header = Header(fields)
 
-        req = Request(method, uri, version, header, self.sock.local_addr, self.reader)
+        req = Request(method, uri, version, header, self.reader)
 
         expect = req.header.get('expect') 
         if expect and expect == '100-continue':

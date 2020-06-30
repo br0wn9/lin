@@ -5,8 +5,6 @@ import time
 
 from io import BytesIO
 
-from urllib.parse import urlsplit
-
 from lin.http.excepts import InvalidChunk, InvalidHeader
 from lin.http.header import Header
 
@@ -102,17 +100,19 @@ class EOFReader(IReader):
             return data
                 
 class Request:
-    def __init__(self, method, uri, version, header, laddr, reader):
-        self.reader = reader
-        self.laddr = laddr
+    def __init__(self, method, uri, version, header, reader):
         self.method = method
         self.uri = uri
-        self.uriparts = urlsplit(self.uri)
         self.version = version
+        self.reader = reader
         self._header = header 
         self._body = None
         self.initial_time = time.time()
 
+
+    @property
+    def local_addr(self):
+        return self.reader.sock.local_addr
 
     @property
     def header(self):

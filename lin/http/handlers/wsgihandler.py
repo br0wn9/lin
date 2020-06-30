@@ -5,7 +5,7 @@ import logging
 import itertools
 
 from io import BytesIO
-from urllib.parse import unquote
+from urllib.parse import urlsplit
 
 from lin.utils import bytes_to_str, str_to_bytes, http_date
 from lin.http.handlers.ihandler import IHandler
@@ -127,17 +127,19 @@ class WSGIHandler(IHandler):
                 }
 
     def environ_create(self, request):
+        uriparts = urlsplit(request.uri)
         environ = self.default_environ()
         environ.update(
                 {
                     'wsgi.input': WSGIReader(request.body),
                     'wsgi.errors': WSGIError(logger),
                     'REQUEST_METHOD': request.method,
-                    'PATH_INFO': unquote(request.uriparts.path, 'latin1'),
-                    'QUERY_STRING': request.uriparts.query,
-                    'SERVER_NAME': request.laddr[0],
-                    'SERVER_PORT': str(request.laddr[1]),
-                    'SERVER_PROTOCOL': 'HTTP/{}'.format(request.version),
+                    'PATH_INFO': uriparts.path,
+                    'QUERY_STRING': uriparts.query,
+                    'SERVER_NAME': request.local_addr[0],
+                    'SERVER_PORT': str(request.local_addr[1]),
+                    'SERVER_PROTOCOL': request.version,
+                    'SCRIPT_NAME': ''
                     }
                 )
 
@@ -146,8 +148,6 @@ class WSGIHandler(IHandler):
                 environ['CONTENT_TYPE'] = field[1]
             elif field[0].upper() == 'CONTENT-LENGTH':
                 environ['CONTENT_LENGTH'] = field[1]
-            elif field[0].upper() == "SCRIPT_NAME":
-                environ['SCRIPT_NAME'] = field[0],
             else:
                 environ['HTTP_{}'.format(field[0])] = field[1]
 
