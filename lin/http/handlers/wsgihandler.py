@@ -1,12 +1,15 @@
 # -*- coding: utf-8 -*-
 
 import sys
+import asyncio
 import logging
 import itertools
 
 from io import BytesIO
+from concurrent.futures import ThreadPoolExecutor
 from urllib.parse import urlsplit
 
+from lin.version import __SERVER_NAME__
 from lin.utils import bytes_to_str, str_to_bytes, http_date
 from lin.http.handlers.ihandler import IHandler
 from lin.http.response import Response, IWriter
@@ -88,7 +91,7 @@ class FileWrapper(IWriter):
         self.blksize = blksize
 
     def tell(self):
-        if hasattr(self.filelike, 'tell'):
+        if hasattr(self.filelike, 'fileno') and hasattr(self.filelike, 'tell'):
             return self.filelike.tell()
         else:
             return super().tell()
@@ -113,14 +116,20 @@ class FileWrapper(IWriter):
 
 class WSGIHandler(IHandler):
 
-    def __init__(self, application):
+    def __init__(self, application, workers=None):
         self.app = load_symbol(application)
+        self.pool = ThreadPoolExecutor(workers)
+        self.loop = asyncio.get_running_loop()
+
+
+    def __del__(self):
+        self.pool.shutdown()
 
     def default_environ(self):
         return {
                 'wsgi.version': (1, 0),
                 'wsgi.url_scheme': 'http',
-                'wsgi.multithread': False,
+                'wsgi.multithread': True,
                 'wsgi.multiprocess': True,
                 'wsgi.run_once': False,
                 'wsgi.file_wrapper': FileWrapper,
@@ -133,13 +142,14 @@ class WSGIHandler(IHandler):
                 {
                     'wsgi.input': WSGIReader(request.body),
                     'wsgi.errors': WSGIError(logger),
+                    'SCRIPT_NAME': '',
                     'REQUEST_METHOD': request.method,
                     'PATH_INFO': uriparts.path,
                     'QUERY_STRING': uriparts.query,
                     'SERVER_NAME': request.local_addr[0],
                     'SERVER_PORT': str(request.local_addr[1]),
                     'SERVER_PROTOCOL': request.version,
-                    'SCRIPT_NAME': ''
+                    'SERVER_SOFTWARE': __SERVER_NAME__,
                     }
                 )
 
@@ -149,7 +159,7 @@ class WSGIHandler(IHandler):
             elif field[0].upper() == 'CONTENT-LENGTH':
                 environ['CONTENT_LENGTH'] = field[1]
             else:
-                environ['HTTP_{}'.format(field[0])] = field[1]
+                environ['HTTP_{}'.format(field[0].replace('-', '_').upper())] = field[1]
 
         return environ
 
@@ -173,9 +183,9 @@ class WSGIHandler(IHandler):
 
         return environ, start_response
 
-    def handle(self, request, response):
+    async def handle(self, request, response):
         environ, start_response = self.wsgi_create(request, response)
-        bodyiter = self.app(environ, start_response)
+        bodyiter = await self.loop.run_in_executor(self.pool, self.app, environ, start_response)
         if isinstance(bodyiter, FileWrapper):
             response.body = bodyiter
         else:

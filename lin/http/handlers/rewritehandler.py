@@ -32,7 +32,7 @@ class RewriteHandler(IHandler):
     def add_rule(self, rule):
         self.rules.append(rule)
 
-    def handle(self, request, response):
+    async def handle(self, request, response):
         for rule in self.rules:
             if rule.replace(request):
                 break

@@ -13,7 +13,7 @@ class LogHandler(IHandler):
         self.log = Logger(access_log)
         self.log.setup()
 
-    def handle(self, request, response):
+    async def handle(self, request, response):
         atoms = {
                 'remote_addr': response.writer.remote_addr,
                 'server_addr': response.writer.local_addr,

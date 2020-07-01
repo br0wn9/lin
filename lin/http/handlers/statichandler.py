@@ -28,7 +28,7 @@ class StaticHandler(IHandler):
         response.header.set('Content-Length', str(len(http_message)))
         response.body([str_to_bytes(http_message)])
 
-    def handle(self, request, response):
+    async def handle(self, request, response):
         path = unquote(request.uri, 'latin1')
 
         if path.startswith(self.location):

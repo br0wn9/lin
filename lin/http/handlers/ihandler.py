@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 class IHandler:
-    def handle(self, request, response):
+    async def handle(self, request, response):
         raise NotImplementedError()
 
     #TODO

@@ -3,8 +3,6 @@ Lin
 
 Lin is a high performance and scalable Python HTTP Server. Base on Python asyncio library. Easy to extensions and Easy to use.
 
-** NOTE: Werkzeug WSGI-based frameworks are not currently supported **
-
 
 Documentation
 -------------
@@ -14,7 +12,7 @@ See docs/setting.txt for more details.
 Requirements
 ------------
 
-lin requires Python 3.x >= 3.7.
+lin requires Python 3.x >= 3.6
 
 lin supports Linux, Freebsd, and MacOS
 
@@ -84,7 +82,7 @@ For example:
 
     class ExampleHandler(IHandler):
 
-        def handle(self, request, response):
+        async def handle(self, request, response):
             # processing request and response
 
 License

@@ -36,7 +36,7 @@ class Writer(IWriter):
         yield from self._raw
 
     def tell(self):
-        if hasattr(self._raw, 'tell'):
+        if hasattr(self._raw, 'fileno') and hasattr(self._raw, 'tell'):
             return self._raw.tell()
         else:
             return super().tell()
@@ -106,7 +106,8 @@ class Response:
         status_code, status_text = self.status.split(None, 1)
         self.status_code = int(status_code)
 
-    def is_chunked(self):
+    @property
+    def chunked(self):
         if self.header.get('Transfer-Encoding') == 'chunked':
             return True
         if self.header.get('Content-Length') is not None:
@@ -121,7 +122,7 @@ class Response:
 
         status_line = "{} {}\r\n".format(self.version, self.status)
         self.header.set('Date', http_date())
-        self.header.set('Connection', 'close' if self.should_close else 'keep-alive')
+        self.header.set('Connection', 'close' if self.should_close or self.status_code != 200 else 'keep-alive')
         header_bytes = self.header.to_bytes()
         return str_to_bytes(status_line) + header_bytes
 
@@ -146,30 +147,40 @@ class Response:
             await self.writer.sendall(self.header_to_bytes())
             self.header_sent = True
 
+    async def _send_file(self, fd, offset, nbytes, chunked=False):
+        if chunked:
+            await self.writer.sendall(b"%X\r\n" % nbytes)
+
+        await self.writer.sendfile(fd, offset, nbytes)
+
+        if chunked:
+            await self.writer.sendall(b"\r\n")
+
+    async def _send_data(self, data, chunked=False):
+        if chunked:
+            await self.writer.sendall(self.to_chunk(data))
+        else:
+            await self.writer.sendall(data)
+
     async def flush(self):
         await self.send_header()
 
         if self.sendfile and self.body.tell() >= 0:
             content_length = int(self.header.get('Content-Length'))
             offset = self.body.tell()
-            size = os.fstat(self.body.fileno()).st_size
-            count = content_length if content_length else size - offset
+            filesize = os.fstat(self.body.fileno()).st_size
 
-            if self.is_chunked():
-                await self.writer.sendall(b"%X\r\n" % count)
+            if filesize == 0:
+                self.body.close()
+                return
 
-            await self.writer.sendfile(self.body, offset, count)
-
-            if self.is_chunked():
-                await self.writer.sendall(b"\r\n")
+            count = content_length if content_length else filesize - offset
+            await self._send_file(self.body, offset, count, self.chunked)
         else:
             for part in self.body:
-                if self.is_chunked():
-                    await self.writer.sendall(self.to_chunk(part))
-                else:
-                    await self.writer.sendall(part)
+                await self._send_data(part, self.chunked)
 
-        if self.is_chunked():
-            await self.writer.sendall(self.to_chunk(b''))
+        if self.chunked:
+            await self._send_data(b'', self.chunked)
 
         self.body.close()

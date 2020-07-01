@@ -25,7 +25,7 @@ class Worker:
         self.parser_cls = HTTParser
         self.handler = conf.handler
 
-    async def handle_except(self, sock, status_code, reason):
+    async def handle_except(self, writer, status_code, reason):
         TEMPLATE = '''<html>
             <head><title>{0} {1}</title></head>
             <body bgcolor="white">
@@ -39,7 +39,7 @@ class Worker:
         header.set('Content-Type', 'text/html')
         header.set('Content-Length', len(content))
 
-        resp = Response('1.1', header, True, sock, False)
+        resp = Response('HTTP/1.1', header, True, writer, False)
         resp.status = '{} {}'.format(status_code, reason)
         with resp:
             resp.body([content])
@@ -51,7 +51,7 @@ class Worker:
             try:
                 req, resp = await parser.parse()
                 with req, resp:
-                    self.handler.handle(req, resp)
+                    await self.handler.handle(req, resp)
                     await resp.flush()
             except NoMoreData as e:
                 logger.debug('Ignore client disconnect early')
