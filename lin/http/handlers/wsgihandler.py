@@ -91,16 +91,10 @@ class FileWrapper(IWriter):
         self.blksize = blksize
 
     def tell(self):
-        if hasattr(self.filelike, 'fileno') and hasattr(self.filelike, 'tell'):
-            return self.filelike.tell()
-        else:
-            return super().tell()
+        return self.filelike.tell()
 
     def fileno(self):
-        if hasattr(self.filelike, 'fileno'):
-            return self.filelike.fileno()
-        else:
-            return super().fileno()
+        return self.filelike.fileno()
 
     def __iter__(self):
         while True:

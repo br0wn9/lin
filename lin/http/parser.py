@@ -89,7 +89,7 @@ class HTTP_v1_x_Parser:
             parts = field.split(':', 1)
             if len(parts) != 2:
                 raise InvalidHeader(field.strip())
-            name, value = parts[0].strip(), parts[1].strip()
+            name, value = parts[0].rstrip(), parts[1].lstrip()
             headers.append((name, value))
         return headers
         

@@ -6,13 +6,27 @@ import collections
 from lin.utils import bytes_to_str, str_to_bytes, http_date
 from lin.http.header import Header
 
+
+class MetaFile(type):
+    def __instancecheck__(cls, instance):
+        return hasattr(instance, 'fileno') and hasattr(instance, 'tell')
+
+class File(metaclass=MetaFile):
+    @classmethod
+    def size(cls, file):
+        return os.fstat(file.fileno()).st_size
+
+    @classmethod
+    def offset(cls, file):
+        return file.tell()
+
+    @classmethod
+    def bind(cls, file, obj):
+        setattr(obj, 'fileno', file.fileno)
+        setattr(obj, 'tell', file.tell)
+
+
 class IWriter:
-
-    def tell(self):
-        return -1
-
-    def fileno(self):
-        raise NotImplementedError()
 
     def write(self, data):
         raise NotImplementedError()
@@ -35,28 +49,21 @@ class Writer(IWriter):
     def __iter__(self):
         yield from self._raw
 
-    def tell(self):
-        if hasattr(self._raw, 'fileno') and hasattr(self._raw, 'tell'):
-            return self._raw.tell()
-        else:
-            return super().tell()
-
-    def fileno(self):
-        if hasattr(self._raw, 'fileno'):
-            return self._raw.fileno()
-        else:
-            return super().fileno()
-
     def close(self):
-        if hasattr(self._raw, 'fileno'):
+        if hasattr(self._raw, 'close'):
             self._raw.close()
 
     def __call__(self, raw):
         if not self._raw is None:
             raise AssertionError("body has been initialized")
-        if not (isinstance(raw, collections.Iterable) or hasattr(raw, 'fileno')):
+
+        if isinstance(raw, File):
+            File.bind(raw, self)
+            self._raw = raw
+        elif isinstance(raw, collections.Iterable):
+            self._raw = raw
+        else:
             raise TypeError("'raw' object is not iterable or file")
-        self._raw = raw
 
 class Response:
     def __init__(self, version, header, should_close, writer, sendfile):
@@ -108,12 +115,10 @@ class Response:
 
     @property
     def chunked(self):
+        if self.version <= 'HTTP/1.0':
+            return False
         if self.header.get('Transfer-Encoding') == 'chunked':
             return True
-        if self.header.get('Content-Length') is not None:
-            return False
-        elif self.version <= 'HTTP/1.0':
-            return False
         return False
 
     def header_to_bytes(self):
@@ -165,16 +170,11 @@ class Response:
     async def flush(self):
         await self.send_header()
 
-        if self.sendfile and self.body.tell() >= 0:
-            content_length = int(self.header.get('Content-Length'))
-            offset = self.body.tell()
-            filesize = os.fstat(self.body.fileno()).st_size
+        if self.sendfile and isinstance(self.body, File) and File.size(self.body) > 0:
+            offset = File.offset(self.body)
+            filesize = File.size(self.body)
 
-            if filesize == 0:
-                self.body.close()
-                return
-
-            count = content_length if content_length else filesize - offset
+            count = filesize - offset if self.chunked else self.header.get('Content-Length', int)
             await self._send_file(self.body, offset, count, self.chunked)
         else:
             for part in self.body:
